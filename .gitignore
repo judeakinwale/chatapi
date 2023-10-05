@@ -1,0 +1,13 @@
+node_modules/
+config/.env
+build/
+*.env
+package-lock.json
+
+sample_data.js
+testing.js
+
+ai_response.md
+
+deploy.sh
+start.sh
