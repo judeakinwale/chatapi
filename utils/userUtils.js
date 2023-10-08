@@ -2,7 +2,6 @@ const fs = require("fs");
 const ErrorResponse = require("./errorResponse");
 const User = require("../models/User");
 
-
 exports.loginWorkaround = async (payload) => {
   if (payload?.user) return payload;
   if (!payload?.email)

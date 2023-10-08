@@ -1,8 +1,12 @@
 const fs = require("fs");
 const { connectAI } = require("../config/chat");
 
+const MAX_TOKENS = 128
 
-async function getResponseAI(query = "When was Microsoft founded?", req = undefined) {
+async function getResponseAI(
+  query = "When was Microsoft founded?",
+  req = undefined
+) {
   console.log("== Get response Sample ==");
 
   const prompt = [query];
@@ -12,7 +16,7 @@ async function getResponseAI(query = "When was Microsoft founded?", req = undefi
   const deploymentId = "text-davinci-003";
   // const deploymentId = "gpt-3.5-turbo";
   const result = await client.getCompletions(deploymentId, prompt, {
-    maxTokens: 64,
+    maxTokens: MAX_TOKENS,
   });
 
   const resultText = [];
@@ -37,31 +41,37 @@ async function getResponseAI(query = "When was Microsoft founded?", req = undefi
   return ttext;
 }
 
-
 // async function getResponseAI(query = "When was Microsoft founded?", req = undefined) {
-async function getChatResponseAI(prompt = [{role: "user", content: "When was Microsoft founded?"}], req = undefined) {
+async function getChatResponseAI(
+  prompt = [{ role: "user", content: "When was Microsoft founded?" }],
+  req = undefined
+) {
   console.log("== Get response Sample ==");
 
   // const prompt = [query];
   const detailedPrompt = [
-    {role: "system", content: "You are an assistant for a company that provides IT solutions and services"},
-    ...prompt
-  ]
+    {
+      role: "system",
+      content:
+        "You are an assistant for a company that provides IT solutions and services",
+    },
+    ...prompt,
+  ];
 
-  console.log({prompt, detailedPrompt})
+  // console.log({ prompt, detailedPrompt });
 
   // const client = await connectAI()
   const client = req ? req.aiClient : await connectAI();
   // const deploymentId = "text-davinci-003";
   const deploymentId = "gpt-3.5-turbo";
-  
+
   // const result = await client.getCompletions(deploymentId, prompt, {
   // const result = await client.getCompletions(deploymentId, detailedPrompt, {
   // const result = await client.listChatCompletions(
   //   deploymentId,
   //   detailedPrompt,
   //   {
-  //     maxTokens: 64,
+  //     maxTokens: MAX_TOKENS,
   //   }
   // );
 
@@ -69,11 +79,12 @@ async function getChatResponseAI(prompt = [{role: "user", content: "When was Mic
     deploymentId,
     detailedPrompt,
     {
-      maxTokens: 64,
+      maxTokens: MAX_TOKENS,
     }
   );
+  // .listChatCompletions()
 
-  console.log({ events });
+  // console.log({ events });
 
   const resultText = [];
   let ttext = "";
@@ -83,29 +94,41 @@ async function getChatResponseAI(prompt = [{role: "user", content: "When was Mic
   //   resultText.push(cleanUpText(choice.text));
   //   // resultText.push(choice.text);
   // }
-
+  let contentTextList = []
+  let contentText = "";
   for await (const event of events) {
+    // console.log({ event });
+    // contentText = "";
+
     for (const choice of event.choices) {
+      // console.log({ choice });
+      
       const delta = choice.delta?.content;
       if (delta !== undefined) {
-        console.log(`Chatbot: ${delta}`);
+        // console.log(`Chatbot: ${delta}`);
         // console.log(choice.text);
         // // ttext = `${ttext}, ${choice.text}`
         // resultText.push(cleanUpText(choice.text));
         // // resultText.push(choice.text);
-        console.log(delta);
-        resultText.push(cleanUpText(delta));
+        contentText = contentText + delta;
+        // console.log({contentText})
       }
     }
+    // console.log(delta);
+    // resultText.push(cleanUpText(delta));
   }
+  resultText.push(cleanUpText(contentText));
+  contentTextList.push(cleanUpText(contentText));
+
+  // console.log({ contentTextList });
 
   ttext = resultText.toString();
 
   // console.log({ result, resultText, ttext });
-  console.log({ resultText, ttext });
+  // console.log({ resultText, ttext });
   try {
     // write result to file for debugging
-    fs.writeFile("build/ai_response.md", String(ttext), "utf8", () => {});
+    fs.writeFile("build/ai_chat_response.md", String(ttext), "utf8", () => {});
   } catch (error) {
     console.log({ error: error.message });
   }
@@ -113,15 +136,14 @@ async function getChatResponseAI(prompt = [{role: "user", content: "When was Mic
   return ttext;
 }
 
-
 async function getResponseOpenAI(query = "test") {
-  console.log("Starting openai completion")
+  console.log("Starting openai completion");
   // const { OpenAI } = require("openai");
 
   // const openai = new OpenAI({
   //   apiKey: process.env.OPENAI_API_KEY,
   // });
-  
+
   // const chatCompletion = await openai.chat.completions.create({
   //   messages: [{ role: "user", content: "Say this is a test" }],
   //   model: "gpt-3.5-turbo",
@@ -142,7 +164,7 @@ function cleanUpText(inputText) {
   // cleanedText = cleanedText.replace(/[^\w\s]/g, '');
 
   // Remove extra spaces between words
-  cleanedText = cleanedText.replace(/\s+/g, ' ');
+  cleanedText = cleanedText.replace(/\s+/g, " ");
 
   return cleanedText;
 }

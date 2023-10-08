@@ -1,20 +1,17 @@
-const path = require("path");
+// const path = require("path");
 const ErrorResponse = require("../utils/errorResponse");
 const asyncHandler = require("../middleware/async");
 const User = require("../models/User");
 const { updateMetaData } = require("../utils/utils");
-const {
-  updateUserPayload,
-  loginWorkaround,
-  getUserDetails,
-} = require("../utils/userUtils");
-const {
-  EnrollmentEmail,
-  CompletionEmail,
-  activateAccountEmail,
-} = require("../utils/emailUtils");
-const { userTenantSubscriptionCheck } = require("../utils/userUtils");
-// const { getTenantByEmail } = require("../utils/tenantUtils");
+// const {
+//   updateUserPayload,
+//   loginWorkaround,
+//   getUserDetails,
+// } = require("../utils/userUtils");
+// const {
+//   activateAccountEmail,
+// } = require("../utils/emailUtils");
+
 const { audit } = require("../utils/auditUtils");
 
 // TODO: update user creation logic for non tenant user
@@ -32,49 +29,47 @@ exports.createUser = asyncHandler(async (req, res, next) => {
   const data = await User.create(req.body).populate();
   if (!data) return next(new ErrorResponse(`User not found!`, 404));
 
-  await enrollUserToAllCourses(data);
+  // // notification for  signup
+  // const isEmailSent = await activateAccountEmail(req, res, data);
+  // const message = !isEmailSent ? "Email could not be sent" : undefined;
 
-  // notification for  signup
-  const isEmailSent = await activateAccountEmail(req, res, data);
-  const message = !isEmailSent ? "Email could not be sent" : undefined;
-
+  await audit.create(req.user, "User");
   res.status(201).json({
     success: true,
     data,
-    message,
+    // message,
   });
 });
 
-// @desc    Create User/
-// @route   POST/api/v1/user/tenant
-// @access   Public
-exports.createTenantUser = asyncHandler(async (req, res, next) => {
-  updateMetaData(req.body, req.user?._id);
-  req.body.email = req.body.email && req.body.email?.toLowerCase();
+// // @desc    Create User/
+// // @route   POST/api/v1/user/tenant
+// // @access   Public
+// exports.createTenantUser = asyncHandler(async (req, res, next) => {
+//   updateMetaData(req.body, req.user?._id);
+//   req.body.email = req.body.email && req.body.email?.toLowerCase();
 
-  // check user account exists
-  const existingData = await User.findOne({ email: req.body.email });
-  if (!existingData) return next(new ErrorResponse(`Account exists!`, 400));
+//   // check user account exists
+//   const existingData = await User.findOne({ email: req.body.email });
+//   if (!existingData) return next(new ErrorResponse(`Account exists!`, 400));
 
-  req.body.tenant =
-    // req.body.tenant || (await getTenantByEmail(req.body?.email));
-  await userTenantSubscriptionCheck(req.body);
+//   // req.body.tenant =
+//   //   // req.body.tenant || (await getTenantByEmail(req.body?.email));
+//   //   await userTenantSubscriptionCheck(req.body);
 
-  const data = await User.create(req.body).populate();
-  if (!data) return next(new ErrorResponse(`User not found!`, 404));
+//   const data = await User.create(req.body).populate();
+//   if (!data) return next(new ErrorResponse(`User not found!`, 404));
 
-  await enrollUserToAllCourses(data);
+//   // // notification for  signup
+//   // const isEmailSent = await activateAccountEmail(req, res, data);
+//   // const message = !isEmailSent ? "Email could not be sent" : undefined;
 
-  // notification for  signup
-  const isEmailSent = await activateAccountEmail(req, res, data);
-  const message = !isEmailSent ? "Email could not be sent" : undefined;
-
-  res.status(201).json({
-    success: true,
-    data,
-    message,
-  });
-});
+//   await audit.create(req.user, "User");
+//   res.status(201).json({
+//     success: true,
+//     data,
+//     // message,
+//   });
+// });
 
 // @desc    Get All Users
 // @route   POST/api/v1/user
@@ -83,25 +78,25 @@ exports.getUsers = asyncHandler(async (req, res, next) => {
   res.status(200).json(res.advancedResults);
 });
 
-// @desc    Get All Tenant Users
-// @route   POST/api/v1/user/tenant/:tenant
-// @route   POST/api/v1/user/email/:email
-// @access   Private/Admin
-exports.getTenantUsers = asyncHandler(async (req, res, next) => {
-  let tenant = req.params.tenant;
-  // if (!tenant) tenant = await getTenantByEmail(req.params?.email);
+// // @desc    Get All Tenant Users
+// // @route   POST/api/v1/user/tenant/:tenant
+// // @route   POST/api/v1/user/email/:email
+// // @access   Private/Admin
+// exports.getTenantUsers = asyncHandler(async (req, res, next) => {
+//   let tenant = req.params.tenant;
+//   // if (!tenant) tenant = await getTenantByEmail(req.params?.email);
 
-  let data = await User.find({ tenant }).populate();
-  if (!data) return next(new ErrorResponse(`User not found!`, 404));
+//   let data = await User.find({ tenant }).populate();
+//   if (!data) return next(new ErrorResponse(`User not found!`, 404));
 
-  data = await Promise.all(data.map(async (d) => await getUserDetails(d)));
+  // data = await Promise.all(data.map(async (d) => await getUserDetails(d)));
 
-  res.status(200).json({
-    success: true,
-    count: data.length,
-    data,
-  });
-});
+//   res.status(200).json({
+//     success: true,
+//     count: data.length,
+//     data,
+//   });
+// });
 
 // @desc    Get Single User
 // @route   POST/api/v1/user/:id
@@ -112,7 +107,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
 
   let data = await User.findById(id).populate();
   if (!data) return next(new ErrorResponse(`User not found!`, 404));
-  data = await getUserDetails(data);
+  // data = await getUserDetails(data);
 
   res.status(200).json({
     success: true,
@@ -134,9 +129,9 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
     runValidators: true,
   });
   if (!data) return next(new ErrorResponse(`User not found!`, 404));
-  data = await getUserDetails(data);
+  // data = await getUserDetails(data);
 
-  await audit.update(user);
+  await audit.update(req.user, "User", data?._id);
   res.status(200).json({
     success: true,
     data,
@@ -153,6 +148,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
   const data = await User.findByIdAndDelete(id);
   if (!data) return next(new ErrorResponse(`User not found!`, 404));
 
+  await audit.delete(req.user, "User", data?._id);
   res.status(200).json({
     success: true,
     data: {},

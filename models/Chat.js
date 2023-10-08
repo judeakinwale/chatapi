@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const Category = new mongoose.Schema(
+const Chat = new mongoose.Schema(
   {
     user: {
       type: mongoose.Schema.Types.ObjectId,
@@ -35,6 +35,6 @@ const Category = new mongoose.Schema(
   { timestamps: true }
 );
 
-Category.index({ chatId: "text", user: "text" });
+Chat.index({ chatId: "text", user: "text" });
 
-module.exports = mongoose.model("Category", Category);
+module.exports = mongoose.model("Chat", Chat);

@@ -2,9 +2,7 @@
 const ErrorResponse = require("../utils/errorResponse");
 const asyncHandler = require("../middleware/async");
 const AuditTrail = require("../models/AuditTrail");
-const {
-  updateMetaData,
-} = require("../utils/utils");
+const { updateMetaData } = require("../utils/utils");
 const { audit } = require("../utils/auditUtils");
 
 // @desc    Create AuditTrail/

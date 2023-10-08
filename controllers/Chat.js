@@ -2,39 +2,46 @@
 const ErrorResponse = require("../utils/errorResponse");
 const asyncHandler = require("../middleware/async");
 const Chat = require("../models/Chat");
+const { updateMetaData } = require("../utils/utils");
 const {
-  updateMetaData,
-} = require("../utils/utils");
-const { getResponseAI, getResponseOpenAI } = require("../utils/chatUtils");
+  getResponseAI,
+  // getResponseOpenAI,
+  getChatResponseAI,
+} = require("../utils/chatUtils");
+const { audit } = require("../utils/auditUtils");
 
 // @desc    Create Chat/
 // @route   POST  /api/v1/chat/
 // @access   Public
 exports.createChat = asyncHandler(async (req, res, next) => {
   updateMetaData(req.body, req.user?._id);
-  req.body.user = req.body.user || req.user?._id
+  req.body.user = req.body.user || req.user?._id;
 
   const { user = req.user?._id, text } = req.body;
   if (!text) return next(new ErrorResponse(`Please enter a question!`, 400));
 
-  // const prompt = [{role: "user", content: text}]
-
   // const openaiResponse = await getResponseOpenAI()
-  const response = await getResponseAI(text, req);
-  // const response = await getChatResponseAI(prompt, req);
-  const payload = { text: response, sender: "bot" };
   // console.log({ openaiResponse });
-  console.log({response})
+
+  const timestamp = new Date();
+
+  const prompt = [{ role: "user", content: text }];
+  const response = await getChatResponseAI(prompt, req);
+
+  // const response = await getResponseAI(text, req);
+  const payload = { text: response, sender: "bot" };
+  console.log({ response });
 
   const data = await Chat.create(req.body);
   if (!data) return next(new ErrorResponse(`Chat not found!`, 400));
 
-  // data.user = user || data.user;
-  data.messages.push({ text });
+  data.user = user || data.user;
+  data.messages.push({ text, timestamp });
   data.messages.push(payload);
-  console.log({ user, text, payload });
+  // console.log({ user, text, payload });
   await data.save();
 
+  await audit.create(req.user, "Chat");
   res.status(201).json({
     success: true,
     data,
@@ -66,26 +73,38 @@ exports.getChat = asyncHandler(async (req, res, next) => {
 
 // @desc    Update Chat
 // @route   PATCH api/v1/chat/:id
+// @route   PATCH api/v1/chat
 // @access   Private
 exports.updateChat = asyncHandler(async (req, res, next) => {
   const id = req.params.id;
-  if (!id) return next(new ErrorResponse(`Chat Id not provided`, 400));
-  
-  const {user = req.user?._id, text} = req.body
+  if (!id) console.log(`Chat Id not provided`);
+  // if (!id) return next(new ErrorResponse(`Chat Id not provided`, 400));
+
+  const { user = req.user?._id, text } = req.body;
   if (!text) return next(new ErrorResponse(`Please enter a question!`, 400));
 
-  const response = await getResponseAI(text, req)
-  const payload = {text: response, sender: "bot"}
+  // const data = await Chat.findById(id);
 
-  const data = await Chat.findById(id);
+  const data = id ? await Chat.findById(id) : await Chat.create(req.body);
   if (!data) return next(new ErrorResponse(`Chat not found!`, 404));
 
-  data.user = user || data.user
-  data.messages.push({ text });
-  data.messages.push(payload);
-  console.log({user, text, payload})
-  await data.save()
+  const timestamp = new Date();
 
+  const previousPrompts = formattedPreviousPrompts(data.messages);
+  const prompt = [...previousPrompts, { role: "user", content: text }];
+  console.log({prompt})
+  const response = await getChatResponseAI(prompt, req);
+
+  // const response = await getResponseAI(text, req);
+  const payload = { text: response, sender: "bot" };
+
+  data.user = user || data.user;
+  data.messages.push({ text, timestamp });
+  data.messages.push(payload);
+  // console.log({ user, text, payload });
+  await data.save();
+
+  await audit.update(req.user, "Chat", data?._id);
   res.status(200).json({
     success: true,
     data,
@@ -102,8 +121,26 @@ exports.deleteChat = asyncHandler(async (req, res, next) => {
   const data = await Chat.findByIdAndDelete(id);
   if (!data) return next(new ErrorResponse(`Chat not found!`, 404));
 
+  await audit.delete(req.user, "Chat", data?._id);
   res.status(200).json({
     success: true,
     data: {},
   });
 });
+
+// format chat messages to prompts for context (previous prompts)
+function formattedPreviousPrompts(messages = [], historyCount = 4) {
+  // ? this should improve the performance 
+  // TODO: test this
+  // set previous messages to only the messages sent by the user
+  let prevMsg = messages.filter(m => m.sender == "user")  // not modifying messages
+
+  // convert messages within history count to prompts
+  if (prevMsg.length > historyCount) prevMsg = prevMsg.slice(-historyCount);
+
+  const formattedMessages = messages.map((m) => ({
+    role: m.sender == "bot" ? "assistant" : "user",
+    content: m.text,
+  }));
+  return formattedMessages;
+}

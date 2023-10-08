@@ -27,7 +27,7 @@ exports.activateAccountEmail = async (req, res, user) => {
     user.activationToken = undefined;
     user.activationExpire = undefined;
     await user.save({ validateBeforeSave: false });
-    
+
     console.log(err);
     // throw new ErrorResponse("Email could not be sent", 500);
     return false;
