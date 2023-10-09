@@ -5,6 +5,7 @@ const {
   getChat,
   updateChat,
   deleteChat,
+  createQuickChat,
 } = require("../controllers/Chat");
 const Chat = require("../models/Chat");
 const { protect, authorize } = require("../middleware/auth");
@@ -14,6 +15,7 @@ const router = express.Router();
 
 router.route("/").post(createChat);
 router.route("/").get(advancedResults(Chat), getChats);
+router.route("/quick/").post(createQuickChat);
 router.route("/:id").get(getChat);
 router.route("/:id").patch(updateChat);
 router.route("/:id").delete(protect, authorize("SuperAdmin"), deleteChat);
