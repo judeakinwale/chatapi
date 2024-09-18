@@ -11,16 +11,13 @@ const { audit } = require("../utils/auditUtils");
 exports.createAuditTrail = asyncHandler(async (req, res, next) => {
   updateMetaData(req.body, req.user?._id);
 
-  // const data = await AuditTrail.create(req.body);
-  const { title } = req.body;
-  const data = await AuditTrail.findOneAndUpdate({ title }, req.body, {
-    new: true,
-    runValidators: true,
-    upsert: true,
-  });
+  const [data] = [
+    await AuditTrail.create(req.body),
+    await audit.create(req.user, "AuditTrail"),
+  ]
+  
   if (!data) return next(new ErrorResponse(`AuditTrail not found!`, 404));
 
-  await audit.create(req.user, "AuditTrail");
   res.status(201).json({
     success: true,
     data,
@@ -57,13 +54,15 @@ exports.updateAuditTrail = asyncHandler(async (req, res, next) => {
   const id = req.params.id;
   if (!id) return next(new ErrorResponse(`AuditTrail Id not provided`, 400));
 
-  const data = await AuditTrail.findByIdAndUpdate(id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const [data] = [
+    await AuditTrail.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    }),
+    await audit.update(req.user, "AuditTrail", data?._id),
+  ]
   if (!data) return next(new ErrorResponse(`AuditTrail not found!`, 404));
 
-  await audit.update(req.user, "AuditTrail", data?._id);
   res.status(200).json({
     success: true,
     data,
@@ -77,10 +76,12 @@ exports.deleteAuditTrail = asyncHandler(async (req, res, next) => {
   const id = req.params.id;
   if (!id) return next(new ErrorResponse(`AuditTrail Id not provided`, 400));
 
-  const data = await AuditTrail.findByIdAndDelete(id);
+  const [data] = [
+    await AuditTrail.findByIdAndDelete(id),
+    await audit.delete(req.user, "AuditTrail", data?._id),
+  ]
   if (!data) return next(new ErrorResponse(`AuditTrail not found!`, 404));
 
-  await audit.delete(req.user, "AuditTrail", data?._id);
   res.status(200).json({
     success: true,
     data: {},

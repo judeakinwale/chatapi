@@ -1,4 +1,8 @@
-const { OpenAIClient, AzureKeyCredential, OpenAIKeyCredential } = require("@azure/openai");
+const {
+  OpenAIClient,
+  AzureKeyCredential,
+  OpenAIKeyCredential,
+} = require("@azure/openai");
 // const endpoint = process.env["AZURE_OPENAI_ENDPOINT"];
 // const azureApiKey = process.env["AZURE_OPENAI_KEY"];
 const openaiKey = process.env["OPENAI_KEY"];
@@ -6,7 +10,7 @@ const openaiKey = process.env["OPENAI_KEY"];
 // const prompt = ["When was Microsoft founded?"];
 
 async function connectAI() {
-  console.log("== Get completions Sample ==");
+  console.log("== Connecting Using Client ==");
 
   // ? For Azure Open AI
   // const client = new OpenAIClient(
@@ -24,7 +28,7 @@ async function connectAI() {
   //   console.log(choice.text);
   // }
 
-  return client
+  return client;
 }
 
 // connectAI().catch((err) => {

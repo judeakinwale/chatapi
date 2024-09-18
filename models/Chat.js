@@ -7,6 +7,12 @@ const Chat = new mongoose.Schema(
       ref: "User",
       // required: true,
     },
+    type: {
+      type: String,
+      enum: ["chat", "whatsapp", "messenger", "instagram"], // Enum to identify if the sender is the user or bot
+      default: "chat",
+      required: true,
+    },
     messages: [
       {
         text: {
@@ -15,7 +21,7 @@ const Chat = new mongoose.Schema(
         },
         sender: {
           type: String,
-          enum: ["user", "bot"], // Enum to identify if the sender is the user or bot
+          enum: ["user", "bot", "agent"], // Enum to identify if the sender is the user or bot
           default: "user",
           required: true,
         },

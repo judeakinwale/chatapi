@@ -1,7 +1,7 @@
 const fs = require("fs");
 const { connectAI } = require("../config/chat");
 
-const MAX_TOKENS = 128
+const MAX_TOKENS = 128;
 
 async function getResponseAI(
   query = "When was Microsoft founded?",
@@ -13,8 +13,8 @@ async function getResponseAI(
 
   // const client = await connectAI()
   const client = req ? req.aiClient : await connectAI();
-  const deploymentId = "text-davinci-003";
-  // const deploymentId = "gpt-3.5-turbo";
+  // const deploymentId = "text-davinci-003";
+  const deploymentId = "gpt-3.5-turbo";
   const result = await client.getCompletions(deploymentId, prompt, {
     maxTokens: MAX_TOKENS,
   });
@@ -94,7 +94,7 @@ async function getChatResponseAI(
   //   resultText.push(cleanUpText(choice.text));
   //   // resultText.push(choice.text);
   // }
-  let contentTextList = []
+  let contentTextList = [];
   let contentText = "";
   for await (const event of events) {
     // console.log({ event });
@@ -102,7 +102,7 @@ async function getChatResponseAI(
 
     for (const choice of event.choices) {
       // console.log({ choice });
-      
+
       const delta = choice.delta?.content;
       if (delta !== undefined) {
         // console.log(`Chatbot: ${delta}`);
