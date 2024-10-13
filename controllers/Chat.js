@@ -7,8 +7,11 @@ const {
   getResponseAI,
   // getResponseOpenAI,
   getChatResponseAI,
+  getDetailedPrompt,
 } = require("../utils/chatUtils");
 const { audit } = require("../utils/auditUtils");
+const handbook = require("../sample/context");
+const Context = require("../models/Context");
 
 // @desc    Create Chat/
 // @route   POST  /api/v1/chat/
@@ -17,35 +20,75 @@ exports.createChat = asyncHandler(async (req, res, next) => {
   updateMetaData(req.body, req.user?._id);
   req.body.user = req.body.user || req.user?._id;
 
-  const { user = req.user?._id, text } = req.body;
-  if (!text) return next(new ErrorResponse(`Please enter a question!`, 400));
+  let { user = req.user?._id, text, context, contextId } = req.body;
+  // if (!text)
+  //   return next(
+  //     new ErrorResponse(`Please enter a question!: text is required`, 400)
+  //   );
+
+  console.log({ query: req.query });
 
   // const openaiResponse = await getResponseOpenAI()
   // console.log({ openaiResponse });
 
   const timestamp = new Date();
 
-  const prompt = [{ role: "user", content: text }];
-  const response = await getChatResponseAI(prompt, req);
+  if (contextId) {
+    try {
+      const ctxRes = await Context.findById(contextId);
+      context = `Context Details: Topics: ${ctxRes.topics?.join(" ")}, Data: ${
+        ctxRes.context
+      }`;
+    } catch (error) {
+      console.log(`Error fetching context by id: ${error.message}`);
+    }
+  }
+  // console.log({ query: req.query });
+  // // add the handbook as context
+  // if (req.query?.useHandbook) {
+  //   context = handbook;
+  // }
+
+  if (!text) text = "Hello";
+  let prompt = [{ role: "user", content: text }];
+
+  const detailedPrompt = getDetailedPrompt(prompt, context);
+
+  const response = await getChatResponseAI(detailedPrompt, req, res);
 
   // const response = await getResponseAI(text, req);
-  const payload = { text: response, sender: "bot" };
+  const payload = { text: response, sender: "assistant" };
   console.log({ response });
 
   const data = await Chat.create(req.body);
   if (!data) return next(new ErrorResponse(`Chat not found!`, 400));
 
   data.user = user || data.user;
-  data.messages.push({ text, timestamp });
+  data.messages.push(
+    ...(detailedPrompt?.map((p) => ({
+      text: p?.content,
+      sender: p?.role,
+      timestamp,
+    })) || [])
+  );
+  // data.messages.push({ text, timestamp });
   data.messages.push(payload);
   // console.log({ user, text, payload });
   await data.save();
 
   await audit.create(req.user, "Chat");
-  res.status(201).json({
-    success: true,
-    data,
-  });
+  res.end(
+    JSON.stringify({
+      success: true,
+      data,
+      currentResponse: response,
+    })
+  );
+  // res.status(201).json({
+  //   success: true,
+  //   data,
+  //   currentResponse: response,
+  // });
 });
 
 // @desc    Create Chat (Quick Response)/
@@ -55,7 +98,7 @@ exports.createQuickChat = asyncHandler(async (req, res, next) => {
   updateMetaData(req.body, req.user?._id);
   req.body.user = req.body.user || req.user?._id;
 
-  console.log("quick chat")
+  console.log("quick chat");
   const { user = req.user?._id, text } = req.body;
   if (!text) return next(new ErrorResponse(`Please enter a question!`, 400));
 
@@ -68,7 +111,7 @@ exports.createQuickChat = asyncHandler(async (req, res, next) => {
   // const response = await getChatResponseAI(prompt, req);
 
   const response = await getResponseAI(text, req);
-  const payload = { text: response, sender: "bot" };
+  const payload = { text: response, sender: "assistant" };
   console.log({ response });
 
   const data = await Chat.create(req.body);
@@ -117,7 +160,7 @@ exports.getChat = asyncHandler(async (req, res, next) => {
 exports.updateChat = asyncHandler(async (req, res, next) => {
   const id = req.params.id;
   if (!id) console.log(`Chat Id not provided`);
-  console.log({id})
+  console.log({ id });
   // if (!id) return next(new ErrorResponse(`Chat Id not provided`, 400));
 
   const { user = req.user?._id, text } = req.body;
@@ -132,11 +175,11 @@ exports.updateChat = asyncHandler(async (req, res, next) => {
 
   const previousPrompts = formattedPreviousPrompts(data.messages);
   const prompt = [...previousPrompts, { role: "user", content: text }];
-  console.log({prompt})
-  const response = await getChatResponseAI(prompt, req);
+  console.log({ prompt });
+  const response = await getChatResponseAI(prompt, req, res);
 
   // const response = await getResponseAI(text, req);
-  const payload = { text: response, sender: "bot" };
+  const payload = { text: response, sender: "assistant" };
 
   data.user = user || data.user;
   data.messages.push({ text, timestamp });
@@ -148,6 +191,7 @@ exports.updateChat = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     success: true,
     data,
+    currentResponse: response,
   });
 });
 
@@ -169,17 +213,20 @@ exports.deleteChat = asyncHandler(async (req, res, next) => {
 });
 
 // format chat messages to prompts for context (previous prompts)
-function formattedPreviousPrompts(messages = [], historyCount = 4) {
-  // ? this should improve the performance 
+function formattedPreviousPrompts(messages = [], historyCount = 10) {
+  // ? this should improve the performance
   // TODO: test this
-  // set previous messages to only the messages sent by the user
-  let prevMsg = messages.filter(m => m.sender == "user")  // not modifying messages
+  // set previous messages to only the messages sent by the user or the context messages ("system")
+  let prevMsg = messages.filter(
+    (m) => m.sender === "user" || m.sender === "system"
+  ); // not modifying messages
 
   // convert messages within history count to prompts
   if (prevMsg.length > historyCount) prevMsg = prevMsg.slice(-historyCount);
 
   const formattedMessages = messages.map((m) => ({
-    role: m.sender == "bot" ? "assistant" : "user",
+    // role: m.sender,
+    role: m.sender === "bot" ? "assistant" : "user",
     content: m.text,
   }));
   return formattedMessages;

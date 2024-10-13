@@ -1,7 +1,9 @@
 const fs = require("fs");
 const { connectAI } = require("../config/chat");
+const { OpenAIClient } = require("@azure/openai");
+const { OpenAIApi } = require("azure-openai");
 
-const MAX_TOKENS = 128;
+const MAX_TOKENS = 512;
 
 async function getResponseAI(
   query = "When was Microsoft founded?",
@@ -41,50 +43,117 @@ async function getResponseAI(
   return ttext;
 }
 
-// async function getResponseAI(query = "When was Microsoft founded?", req = undefined) {
-async function getChatResponseAI(
-  prompt = [{ role: "user", content: "When was Microsoft founded?" }],
-  req = undefined
-) {
-  console.log("== Get response Sample ==");
+function cleanAndTokenize(text) {
+  // Remove punctuation, new lines, and escaped characters
+  const cleanedText = text
+    .replace(/[\r\n]+/g, " ") // Replace new lines with a single space
+    // .replace(/[^\w\s]/g, "") // Remove punctuation
+    .replace(/\s+/g, " ") // Replace multiple spaces with a single space
+    .trim(); // Trim leading/trailing spaces
+  // .toLowerCase(); // Convert to lowercase
 
-  // const prompt = [query];
+  // Split the cleaned text into an array of words (tokens)
+  const tokens = cleanedText.split(" "); // Split by single space
+
+  return tokens;
+}
+
+function getDetailedPrompt(prompt = [], context = "") {
   const detailedPrompt = [
     {
       role: "system",
       content:
         "You are an assistant for a company that provides IT solutions and services",
     },
+    !!context && {
+      role: "system",
+      content: cleanAndTokenize(
+        `Provided below is the data to use as your primary source of information. 
+        Recommend links to information provided below if they are related. 
+        If there are lists of javascript objects in a section of the text below, they are sorted such that the most relevant to the section are at the start ${context}`
+      )?.join(" "),
+    },
     ...prompt,
-  ];
+  ]?.filter(Boolean);
+  return detailedPrompt;
+}
+
+// async function getResponseAI(query = "When was Microsoft founded?", req = undefined) {
+async function getChatResponseAI(
+  prompt = [{ role: "user", content: "When was Microsoft founded?" }],
+  req = undefined,
+  res = undefined
+) {
+  console.log("== Get response Sample ==");
+
+  // // const prompt = [query];
+  // const detailedPrompt = [
+  //   {
+  //     role: "system",
+  //     content:
+  //       "You are an assistant for a company that provides IT solutions and services",
+  //   },
+  //   ...prompt,
+  // ];
+
+  const detailedPrompt = prompt;
 
   // console.log({ prompt, detailedPrompt });
+  console.log({ detailedPrompt });
 
   // const client = await connectAI()
   const client = req ? req.aiClient : await connectAI();
-  // const deploymentId = "text-davinci-003";
-  const deploymentId = "gpt-3.5-turbo";
 
-  // const result = await client.getCompletions(deploymentId, prompt, {
-  // const result = await client.getCompletions(deploymentId, detailedPrompt, {
-  // const result = await client.listChatCompletions(
-  //   deploymentId,
-  //   detailedPrompt,
-  //   {
-  //     maxTokens: MAX_TOKENS,
-  //   }
-  // );
+  let events;
 
-  const events = await client.listChatCompletions(
-    deploymentId,
-    detailedPrompt,
-    {
-      maxTokens: MAX_TOKENS,
-    }
-  );
-  // .listChatCompletions()
+  if (client instanceof OpenAIApi) {
+    console.log("OpenAIApi used!!!");
 
-  // console.log({ events });
+    console.log({ client });
+
+    const model = "gpt-4o-mini";
+    // const model = 'gpt-4o';
+    // const model = "gpt-3.5-turbo";
+
+    const stream = await client.createChatCompletion({
+      model: model,
+      messages: detailedPrompt,
+      stream: true,
+    });
+
+    events = stream;
+  }
+
+  if (client instanceof OpenAIClient) {
+    console.log("OpenAIClient used!!!");
+
+    // const deploymentId = "text-davinci-003";
+    // const deploymentId = "gpt-3.5-turbo";
+    // const deploymentId = "gpt-4o-mini";
+    const deploymentId = "Testing";
+
+    // const result = await client.getCompletions(deploymentId, prompt, {
+    // const result = await client.getCompletions(deploymentId, detailedPrompt, {
+    // const result = await client.listChatCompletions(
+    //   deploymentId,
+    //   detailedPrompt,
+    //   {
+    //     maxTokens: MAX_TOKENS,
+    //   }
+    // );
+
+    const eventsResponse = await client.listChatCompletions(
+      deploymentId,
+      detailedPrompt,
+      {
+        maxTokens: MAX_TOKENS,
+      }
+    );
+    // .listChatCompletions()
+
+    // console.log({ events });
+    events = eventsResponse;
+  }
 
   const resultText = [];
   let ttext = "";
@@ -97,6 +166,11 @@ async function getChatResponseAI(
   let contentTextList = [];
   let contentText = "";
   for await (const event of events) {
+    const preContent = event.choices[0]?.delta?.content || "";
+    process.stdout.write(preContent);
+
+    res.write(preContent);
+
     // console.log({ event });
     // contentText = "";
 
@@ -112,13 +186,18 @@ async function getChatResponseAI(
         // // resultText.push(choice.text);
         contentText = contentText + delta;
         // console.log({contentText})
+
+        // res?.write(contentText);
       }
     }
     // console.log(delta);
     // resultText.push(cleanUpText(delta));
   }
-  resultText.push(cleanUpText(contentText));
-  contentTextList.push(cleanUpText(contentText));
+  // resultText.push(cleanUpText(contentText));
+  // contentTextList.push(cleanUpText(contentText));
+
+  resultText.push(contentText);
+  contentTextList.push(contentText);
 
   // console.log({ contentTextList });
 
@@ -174,4 +253,10 @@ function cleanUpText(inputText) {
 //   console.error("The sample encountered an error:", err);
 // });
 
-module.exports = { getResponseAI, getChatResponseAI, getResponseOpenAI };
+module.exports = {
+  getResponseAI,
+  getChatResponseAI,
+  getResponseOpenAI,
+  cleanAndTokenize,
+  getDetailedPrompt,
+};

@@ -13,6 +13,12 @@ const Chat = new mongoose.Schema(
       default: "chat",
       required: true,
     },
+    service: {
+      type: String,
+      enum: ["openai", "azure-openai"], // Enum to identify which service is being used (for context)
+      default: "openai",
+      // required: true,
+    },
     messages: [
       {
         text: {
@@ -21,14 +27,14 @@ const Chat = new mongoose.Schema(
         },
         sender: {
           type: String,
-          enum: ["user", "bot", "agent"], // Enum to identify if the sender is the user or bot
+          enum: ["user", "bot", "assistant", "agent", "system"], // Enum to identify if the sender is the user or bot
           default: "user",
           required: true,
         },
         timestamp: {
           type: Date,
           default: Date.now,
-          required: true,
+          // required: true,
         },
       },
     ],

@@ -21,12 +21,11 @@ const auth = require("./routes/Auth");
 const user = require("./routes/User");
 const chat = require("./routes/Chat");
 const audit = require("./routes/AuditTrail");
+const context = require("./routes/Context");
 const aiClient = require("./middleware/aiClient");
 
 //connect to database
 connectDB();
-
-
 
 const app = express();
 
@@ -64,13 +63,14 @@ app.use(hpp());
 app.use(cors());
 
 // setup ai client
-app.use(aiClient)
+app.use(aiClient);
 
 //Mount Routers
 app.use("/api/v1/auth/", auth);
 app.use("/api/v1/user/", user);
 app.use("/api/v1/chat/", chat);
 app.use("/api/v1/audit/", audit);
+app.use("/api/v1/context/", context);
 
 app.use(errorHandler);
 
