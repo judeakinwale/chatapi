@@ -188,11 +188,18 @@ exports.updateChat = asyncHandler(async (req, res, next) => {
   await data.save();
 
   await audit.update(req.user, "Chat", data?._id);
-  res.status(200).json({
-    success: true,
-    data,
-    currentResponse: response,
-  });
+  res.end(
+    JSON.stringify({
+      success: true,
+      data,
+      currentResponse: response,
+    })
+  );
+  // res.status(200).json({
+  //   success: true,
+  //   data,
+  //   currentResponse: response,
+  // });
 });
 
 // @desc    Delete Chat
