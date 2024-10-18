@@ -130,7 +130,7 @@ async function getChatResponseAI(
     // const deploymentId = "text-davinci-003";
     // const deploymentId = "gpt-3.5-turbo";
     // const deploymentId = "gpt-4o-mini";
-    const deploymentId = "Testing";
+    const deploymentId = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "Testing";
 
     // const result = await client.getCompletions(deploymentId, prompt, {
     // const result = await client.getCompletions(deploymentId, detailedPrompt, {
