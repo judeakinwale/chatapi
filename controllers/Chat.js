@@ -80,7 +80,11 @@ exports.createChat = asyncHandler(async (req, res, next) => {
   res.end(
     JSON.stringify({
       success: true,
-      data,
+      data: {
+        // return only the id to prevent parsing issues with long json strings
+        // TODO: fix the issue
+        _id: data?._id,
+      },
       currentResponse: response,
     })
   );
